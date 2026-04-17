@@ -1,0 +1,60 @@
+import numpy as np
+import pandas as pd
+
+def replace_categorical_by_numerical(data):
+    data = data.copy()
+    data.loc[:, "Levy"] = data["Levy"].replace({'-': 0})
+    data.loc[:, "Levy"] = pd.to_numeric(data["Levy"])
+
+    data.loc[:, "Engine volume"] = data["Engine volume"].str.replace('Turbo','')
+    data.loc[:, "Engine volume"] = pd.to_numeric(data["Engine volume"])
+
+    data.loc[:, "Mileage"] = data["Mileage"].str.replace('km','')
+    data.loc[:, "Mileage"] = pd.to_numeric(data["Mileage"])
+
+    return data
+
+def columns_transformation(data):
+    data['Mileage'] = np.log(data['Mileage']).replace(-np.inf, 1e-6)
+    data['Engine volume'] = np.log(data['Engine volume']).replace(-np.inf, 1e-6)
+    data['Levy'] = np.log(data['Levy']).replace(-np.inf, 1e-6)
+    return data
+
+def clean_outliers(df,cols):
+    for col in cols:
+        q1 = df[col].quantile(0.25)
+        q3 = df[col].quantile(0.75)
+        iqr = q3 - q1
+        
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+        
+        df = df[(df[col] >= lower_bound) & (df[col] <= upper_bound)]
+    return df
+
+def engineer_features(df):
+    current_year = pd.Timestamp.now().year
+    df['Age'] = current_year - df['Prod. year']
+    return df
+
+def preprocessing_pipeline(df: pd.DataFrame):
+    print("Preprocessing started...")
+    print(f"Initial shape: {df.shape}")
+
+    df = df.drop_duplicates()
+    print(f"After dropping duplicates: {df.shape}")
+
+    print(f"Replacing categorical values...")
+    df = replace_categorical_by_numerical(df)
+
+    df = clean_outliers(df,["Price","Levy","Engine volume","Mileage"])
+    print(f"After cleaning outliers: {df.shape}")
+
+    print(f"Feature engineering...")
+    df =engineer_features(df)
+
+    print("Drooping columns...")
+    df = df.drop(["ID","Doors","Prod. year"], axis=1)
+
+    print("Final shape: ", df.shape)
+    return df
